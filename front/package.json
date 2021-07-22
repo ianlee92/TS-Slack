@@ -17,6 +17,7 @@
     "@pmmmwh/react-refresh-webpack-plugin": "^0.4.3",
     "@types/react": "^17.0.14",
     "@types/react-dom": "^17.0.9",
+    "axios": "^0.21.1",
     "css-loader": "^6.2.0",
     "fork-ts-checker-webpack-plugin": "^6.2.12",
     "react": "^17.0.2",
