@@ -37,7 +37,7 @@ const SignUp = () => {
         setSignUpError(''); // 비동기전 초기화
         setSignUpSuccess(false); // 요청전에 초기화
         axios
-          .post('/api/users', {
+          .post('http://localhost:3095/api/users', {
             email,
             nickname,
             password,
