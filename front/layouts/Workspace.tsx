@@ -2,10 +2,12 @@ import React, { FC, useCallback } from 'react';
 import fetcher from '@utils/fetcher';
 import axios from 'axios';
 import { Redirect } from 'react-router';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 
 const Workspace: FC = ({ children }) => {
-  const { data, error, revalidate } = useSWR('http://localhost:3095/api/users', fetcher);
+  const { data, error, revalidate, mutate } = useSWR('http://localhost:3095/api/users', fetcher, {
+    dedupingInterval: 2000, // 2초
+  });
 
   const onLogout = useCallback(() => {
     axios
@@ -13,7 +15,7 @@ const Workspace: FC = ({ children }) => {
         withCredentials: true,
       })
       .then(() => {
-        revalidate(); // 로그아웃후 바로 false로 바뀜
+        mutate(false, false);
       });
   }, []);
 
