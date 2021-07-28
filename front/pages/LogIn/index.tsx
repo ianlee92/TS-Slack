@@ -40,7 +40,7 @@ const LogIn = () => {
 
   if (data) {
     // 로그인되면
-    return <Redirect to="/workspace/channel" />;
+    return <Redirect to="/workspace/sleact/channel/일반" />;
   }
 
   // console.log(error, userData);
