@@ -1,3 +1,5 @@
+import ChannelList from '@components/ChanneList';
+import DMList from '@components/DMList';
 import Menu from '@components/Menu';
 import Modal from '@components/Modal';
 import InviteWorkspaceModal from '@components/InviteWorkspaceModal';
@@ -181,9 +183,8 @@ const Workspace: VFC = () => {
                 <button onClick={onLogout}>로그아웃</button>
               </WorkspaceModal>
             </Menu>
-            {channelData?.map((v) => (
-              <div>{v.name}</div>
-            ))}
+            <ChannelList />
+            <DMList />
           </MenuScroll>
         </Channels>
         <Chats>
