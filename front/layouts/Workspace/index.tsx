@@ -133,7 +133,9 @@ const Workspace: VFC = () => {
     setShowCreateChannelModal(true);
   }, []);
 
-  const onClickInviteWorkspace = useCallback(() => {}, []);
+  const onClickInviteWorkspace = useCallback(() => {
+    setShowInviteWorkspaceModal(true);
+  }, []);
 
   // return이 아래에 있어야함 return보다 아래에 있으면 오류남
   if (!userData) {
