@@ -7,7 +7,7 @@ import { Form, Label, Input, LinkContainer, Button, Header, Error, Success } fro
 import { Link, Redirect } from 'react-router-dom';
 
 const SignUp = () => {
-  const { data, error, revalidate } = useSWR('http://localhost:3095/api/users', fetcher);
+  const { data, error, revalidate } = useSWR('/api/users', fetcher);
   const [email, onChangeEmail] = useInput('');
   const [nickname, onChangeNickname] = useInput('');
   const [password, , setPassword] = useInput('');
@@ -40,7 +40,7 @@ const SignUp = () => {
         setSignUpError(''); // 비동기전 초기화
         setSignUpSuccess(false); // 요청전에 초기화
         axios
-          .post('http://localhost:3095/api/users', {
+          .post('/api/users', {
             email,
             nickname,
             password,
