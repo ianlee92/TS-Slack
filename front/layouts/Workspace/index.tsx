@@ -71,7 +71,7 @@ const Workspace: VFC = () => {
       .then(() => {
         mutate(false, false);
       });
-  }, []);
+  }, [mutate]);
 
   const onCloseUserProfile = useCallback((e) => {
     e.stopPropagation();
