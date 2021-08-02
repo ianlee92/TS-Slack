@@ -4,7 +4,7 @@ import { Container, Header } from '@pages/Channel/styles';
 import { IDM } from '@typings/db';
 import fetcher from '@utils/fetcher';
 import makeSection from '@utils/makeSection';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import gravatar from 'gravatar';
 import { useParams } from 'react-router';
 import useSWR, { useSWRInfinite } from 'swr';
@@ -27,6 +27,8 @@ const DirectMessage = () => {
     (index) => `/api/workspaces/${workspace}/dms/${id}/chats?perPage=20&page=${index + 1}`,
     fetcher,
   );
+  // useSWRInfinite는 2차원배열을 지원해준다 1차원배열[{},{},{}] / 2차원배열 [[{}, {}], [{},{}]]
+
   // isEmpty와 isReachingEnd라는 변수를 만들어서 인피니트스크롤링할때 사용
   // 데이터40개 20+20 가져오고 +0 isEmpty는 true isReachingEnd도 true
   // 데이터45개 20+20 가져오고 +5 isEmpty는 false isReachingEnd는 true
@@ -38,20 +40,45 @@ const DirectMessage = () => {
     (e) => {
       e.preventDefault();
       console.log(chat);
-      if (chat?.trim()) {
+      if (chat?.trim() && chatData) {
+        // optimistic UI 화면에 먼저 반영 서버에 가지않기때문에 임의로 성공한거처럼 데이터
+        mutateChat((prevChatData) => {
+          const savedChat = chat;
+          prevChatData?.[0].unshift({
+            id: (chatData[0][0]?.id || 0) + 1,
+            content: savedChat,
+            SenderId: myData.id,
+            Sender: myData,
+            ReceiverId: userData.id,
+            Receiver: userData,
+            createdAt: new Date(),
+          });
+          return prevChatData;
+        }, false) // shouldRevalidate가 false여야함
+          .then(() => {
+            setChat(''); // 채팅 보내고 공백으로
+            scrollbarRef.current?.scrollToBottom(); // 채팅 보냈을때 가장 밑으로
+          });
         axios
           .post(`/api/workspaces/${workspace}/dms/${id}/chats`, {
             content: chat,
           })
           .then(() => {
             revalidate(); // 바로 받아오게끔
-            setChat(''); // 채팅 보내고 공백으로
           })
           .catch(console.error);
       }
     },
-    [chat, chatData],
+    [chat, chatData, myData, userData, workspace, id],
   );
+
+  // 로딩 시 스크롤바 제일 아래로
+  useEffect(() => {
+    if (chatData?.length === 1) {
+      // 채팅데이터가 있어서 불러온 경우
+      scrollbarRef.current?.scrollToBottom(); // 스크롤바 가장 밑으로
+    }
+  }, [chatData]);
 
   if (!userData || !myData) {
     return null;
@@ -64,13 +91,7 @@ const DirectMessage = () => {
       <Header>
         <img src={gravatar.url(userData.email, { s: '24px', d: 'retro' })} alt={userData.nickname} />
       </Header>
-      <ChatList
-        chatSections={chatSections}
-        ref={scrollbarRef}
-        setSize={setSize}
-        isEmpty={isEmpty}
-        isReachingEnd={isReachingEnd}
-      />
+      <ChatList chatSections={chatSections} ref={scrollbarRef} setSize={setSize} isReachingEnd={isReachingEnd} />
       <ChatBox chat={chat} onChangeChat={onChangeChat} onSubmitForm={onSubmitForm} />
     </Container>
   );
