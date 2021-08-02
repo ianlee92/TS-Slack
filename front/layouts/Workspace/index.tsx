@@ -5,6 +5,7 @@ import Modal from '@components/Modal';
 import InviteWorkspaceModal from '@components/InviteWorkspaceModal';
 import InviteChannelModal from '@components/InviteChannelModal';
 import useInput from '@hooks/useInput';
+import useSocket from '@hooks/useSocket';
 import {
   Header,
   RightMenu,
@@ -26,7 +27,7 @@ import { Button, Input, Label } from '@pages/SignUp/styles';
 import { IChannel, IUser } from '@typings/db';
 import fetcher from '@utils/fetcher';
 import axios from 'axios';
-import React, { VFC, useCallback, useState } from 'react';
+import React, { VFC, useCallback, useState, useEffect } from 'react';
 import { Redirect, useParams } from 'react-router';
 import { Link, Route, Switch } from 'react-router-dom';
 import useSWR from 'swr';
@@ -60,8 +61,20 @@ const Workspace: VFC = () => {
   });
   // 로그인 한 상태일 때만 요청가능하게 userData ? : null을 사용
   const { data: channelData } = useSWR<IChannel[]>(userData ? `/api/workspaces/${workspace}/channels` : null, fetcher);
+  const { data: memberData } = useSWR<IUser[]>(userData ? `/api/workspaces/${workspace}/members` : null, fetcher);
+  const [socket, disconnect] = useSocket(workspace);
 
-  const { data: memberData } = useSWR<IChannel[]>(userData ? `/api/${workspace}/members` : null, fetcher);
+  useEffect(() => {
+    if (channelData && userData && socket) {
+      console.log(socket);
+      socket.emit('login', { id: userData.id, channels: channelData.map((v) => v.id) });
+    }
+  }, [socket, channelData, userData]);
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, [workspace, disconnect]); // workspace가 변경되면 기존 워크스페이스를 끊어줌
 
   const onLogout = useCallback(() => {
     axios
