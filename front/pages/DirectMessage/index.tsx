@@ -9,6 +9,7 @@ import gravatar from 'gravatar';
 import { useParams } from 'react-router';
 import useSWR, { useSWRInfinite } from 'swr';
 import useInput from '@hooks/useInput';
+import useSocket from '@hooks/useSocket';
 import axios from 'axios';
 import Scrollbars from 'react-custom-scrollbars';
 
@@ -27,6 +28,7 @@ const DirectMessage = () => {
     (index) => `/api/workspaces/${workspace}/dms/${id}/chats?perPage=20&page=${index + 1}`,
     fetcher,
   );
+  const [socket] = useSocket(workspace);
   // useSWRInfinite는 2차원배열을 지원해준다 1차원배열[{},{},{}] / 2차원배열 [[{}, {}], [{},{}]]
 
   // isEmpty와 isReachingEnd라는 변수를 만들어서 인피니트스크롤링할때 사용
@@ -71,6 +73,35 @@ const DirectMessage = () => {
     },
     [chat, chatData, myData, userData, workspace, id],
   );
+
+  const onMessage = useCallback((data: IDM) => {
+    // id는 상대방 아이디
+    if (data.SenderId === Number(id) && myData.id !== Number(id)) {
+      mutateChat((chatData) => {
+        chatData?.[0].unshift(data);
+        return chatData;
+      }, false).then(() => {
+        if (scrollbarRef.current) {
+          if (
+            scrollbarRef.current.getScrollHeight() <
+            scrollbarRef.current.getClientHeight() + scrollbarRef.current.getScrollTop() + 150
+          ) {
+            console.log('scrollToBottom!', scrollbarRef.current?.getValues());
+            setTimeout(() => {
+              scrollbarRef.current?.scrollToBottom();
+            }, 50);
+          }
+        }
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    socket?.on('dm', onMessage);
+    return () => {
+      socket?.off('dm', onMessage);
+    };
+  }, [socket, onMessage]);
 
   // 로딩 시 스크롤바 제일 아래로
   useEffect(() => {
