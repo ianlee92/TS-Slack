@@ -12,6 +12,7 @@ interface Props {
 const Chat: VFC<Props> = ({ data }) => {
   const { workspace } = useParams<{ workspace: string; channel: string }>();
   const user = 'Sender' in data ? data.Sender : data.User; // dm보내는사람 받는사람 Receiver
+  //Sender는 DM에만 들어있음
 
   // @[이안](1)
   // \d 숫자 + 는 1개이상 ?는 0개나 1개, * 0개 이상, g 모두찾기

@@ -1,21 +1,159 @@
 import ChatBox from '@components/ChatBox';
 import ChatList from '@components/ChatList';
+import InviteChannelModal from '@components/InviteChannelModal';
 import useInput from '@hooks/useInput';
-import { Container, Header } from '@pages/Channel/styles';
-import React, { useCallback } from 'react';
+import useSocket from '@hooks/useSocket';
+import { Container, Header, DragOver } from '@pages/Channel/styles';
+import { IChannel, IChat, IUser } from '@typings/db';
+import fetcher from '@utils/fetcher';
+import makeSection from '@utils/makeSection';
+import axios from 'axios';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Scrollbars from 'react-custom-scrollbars';
+import { useParams } from 'react-router';
+import useSWR, { useSWRInfinite } from 'swr';
 
 const Channel = () => {
+  const { workspace, channel } = useParams<{ workspace: string; channel: string }>();
+  const { data: myData } = useSWR('/api/users', fetcher);
   const [chat, onChangeChat, setChat] = useInput('');
-  const onSubmitForm = useCallback((e) => {
-    e.preventDefault();
-    setChat('');
+  const { data: channelData } = useSWR<IChannel>(`/api/workspaces/${workspace}/channels/${channel}`, fetcher);
+  //채팅 받아오는 API
+  const {
+    data: chatData,
+    mutate: mutateChat,
+    revalidate,
+    setSize, // index는 페이지수, setSize는 페이지수를 바꿔줌
+  } = useSWRInfinite<IChat[]>(
+    (index) => `/api/workspaces/${workspace}/channels/${channel}/chats?perPage=20&page=${index + 1}`,
+    fetcher,
+  );
+  const { data: channelMembersData } = useSWR<IUser[]>( // 채널 참가중인 멤버들
+    myData ? `/api/workspaces/${workspace}/channels/${channel}/members` : null,
+    fetcher,
+  );
+
+  const [socket] = useSocket(workspace);
+  const isEmpty = chatData?.[0]?.length === 0;
+  const isReachingEnd = isEmpty || (chatData && chatData[chatData.length - 1]?.length < 20) || false; // 기본값 false
+  const scrollbarRef = useRef<Scrollbars>(null);
+  const [showInviteChannelModal, setShowInviteChannelModal] = useState(false);
+  //채팅 보내는 API
+  const onSubmitForm = useCallback(
+    (e) => {
+      e.preventDefault();
+      console.log(chat);
+      if (chat?.trim() && chatData && channelData) {
+        // optimistic UI 화면에 먼저 반영 서버에 가지않기때문에 임의로 성공한거처럼 데이터
+        mutateChat((prevChatData) => {
+          const savedChat = chat;
+          prevChatData?.[0].unshift({
+            id: (chatData[0][0]?.id || 0) + 1,
+            content: savedChat,
+            UserId: myData.id,
+            User: myData, // 채널은 받는사람없고 보내는사람만 있음
+            ChannelId: channelData.id,
+            Channel: channelData,
+            createdAt: new Date(),
+          });
+          return prevChatData;
+        }, false) // shouldRevalidate가 false여야함
+          .then(() => {
+            setChat(''); // 채팅 보내고 공백으로
+            scrollbarRef.current?.scrollToBottom(); // 채팅 보냈을때 가장 밑으로
+          });
+        axios
+          .post(`/api/workspaces/${workspace}/channels/${channel}/chats`, {
+            content: chat,
+          })
+          .then(() => {
+            revalidate(); // 바로 받아오게끔
+          })
+          .catch(console.error);
+      }
+    },
+    [chat, chatData, myData, channelData, workspace, channel],
+  );
+
+  const onMessage = useCallback(
+    (data: IChat) => {
+      // 데이터의 채널명이 내 채널과 같은지
+      // 내가 친 채팅은 위에서 Optimstic UI로 넣었기 때문에 socket.io에서 오는 데이터에서는 걸러줘야함
+      if (data.Channel.name === channel && data.UserId !== myData?.id) {
+        mutateChat((chatData) => {
+          chatData?.[0].unshift(data);
+          return chatData;
+        }, false).then(() => {
+          if (scrollbarRef.current) {
+            if (
+              scrollbarRef.current.getScrollHeight() <
+              scrollbarRef.current.getClientHeight() + scrollbarRef.current.getScrollTop() + 150
+            ) {
+              console.log('scrollToBottom!', scrollbarRef.current?.getValues());
+              setTimeout(() => {
+                scrollbarRef.current?.scrollToBottom();
+              }, 50);
+            }
+          }
+        });
+      }
+    },
+    [channel, myData],
+  );
+
+  useEffect(() => {
+    socket?.on('message', onMessage);
+    return () => {
+      socket?.off('message', onMessage);
+    };
+  }, [socket, onMessage]);
+
+  // 로딩 시 스크롤바 제일 아래로
+  useEffect(() => {
+    if (chatData?.length === 1) {
+      // 채팅데이터가 있어서 불러온 경우
+      scrollbarRef.current?.scrollToBottom(); // 스크롤바 가장 밑으로
+    }
+  }, [chatData]);
+
+  const onClickInviteChannel = useCallback(() => {
+    setShowInviteChannelModal(true);
   }, []);
+
+  const onCloseModal = useCallback(() => {
+    setShowInviteChannelModal(false);
+  }, []);
+
+  if (!myData || !myData) {
+    return null;
+  }
+
+  const chatSections = makeSection(chatData ? chatData.flat().reverse() : []); // 2차원배열을 1차열배열로 바꿔주고 reverse
 
   return (
     <Container>
-      <Header>채널!</Header>
-      {/* <ChatList /> */}
+      <Header>
+        <span>#{channel}</span>
+        <div className="header-right">
+          <span>{channelMembersData?.length}</span>
+          <button
+            onClick={onClickInviteChannel}
+            className="c-button-unstyled p-ia__view_header__button"
+            aria-label="Add people to #react-native"
+            data-sk="tooltip_parent"
+            type="button"
+          >
+            <i className="c-icon p-ia__view_header__button_icon c-icon--add-user" aria-hidden="true" />
+          </button>
+        </div>
+      </Header>
+      <ChatList chatSections={chatSections} ref={scrollbarRef} setSize={setSize} isReachingEnd={isReachingEnd} />
       <ChatBox chat={chat} onChangeChat={onChangeChat} onSubmitForm={onSubmitForm} />
+      <InviteChannelModal
+        show={showInviteChannelModal}
+        onCloseModal={onCloseModal}
+        setShowInviteChannelModal={setShowInviteChannelModal}
+      />
     </Container>
   );
 };
