@@ -133,7 +133,7 @@ const DirectMessage = () => {
           formData.append('image', e.dataTransfer.files[i]);
         }
       }
-      axios.post(`api/workspaces/${workspace}/dms/${id}/images`, formData).then(() => {
+      axios.post(`/api/workspaces/${workspace}/dms/${id}/images`, formData).then(() => {
         setDragOver(false);
         revalidate();
       });
