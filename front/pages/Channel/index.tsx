@@ -27,6 +27,15 @@ const Channel = () => {
   } = useSWRInfinite<IChat[]>(
     (index) => `/api/workspaces/${workspace}/channels/${channel}/chats?perPage=20&page=${index + 1}`,
     fetcher,
+    {
+      onSuccess(data) {
+        if (data?.length === 1) {
+          setTimeout(() => {
+            scrollbarRef.current?.scrollToBottom();
+          }, 100);
+        }
+      },
+    },
   );
   const { data: channelMembersData } = useSWR<IUser[]>( // 채널 참가중인 멤버들
     myData ? `/api/workspaces/${workspace}/channels/${channel}/members` : null,
@@ -60,6 +69,7 @@ const Channel = () => {
           return prevChatData;
         }, false) // shouldRevalidate가 false여야함
           .then(() => {
+            localStorage.setItem(`${workspace}-${channel}`, new Date().getTime().toString());
             setChat(''); // 채팅 보내고 공백으로
             scrollbarRef.current?.scrollToBottom(); // 채팅 보냈을때 가장 밑으로
           });
@@ -120,6 +130,11 @@ const Channel = () => {
     }
   }, [chatData]);
 
+  // 페이지가 로딩될때 localStorage에 현재 시간을 저장해둠
+  useEffect(() => {
+    localStorage.setItem(`${workspace}-${channel}`, new Date().getTime().toString());
+  }, [workspace, channel]);
+
   const onClickInviteChannel = useCallback(() => {
     setShowInviteChannelModal(true);
   }, []);
@@ -134,9 +149,7 @@ const Channel = () => {
       console.log(e);
       const formData = new FormData();
       if (e.dataTransfer.items) {
-        // Use DataTransferItemList interface to access the file(s)
         for (let i = 0; i < e.dataTransfer.items.length; i++) {
-          // If dropped items aren't files, reject them
           if (e.dataTransfer.items[i].kind === 'file') {
             const file = e.dataTransfer.items[i].getAsFile();
             console.log('... file[' + i + '].name = ' + file.name);
@@ -144,7 +157,6 @@ const Channel = () => {
           }
         }
       } else {
-        // Use DataTransfer interface to access the file(s)
         for (let i = 0; i < e.dataTransfer.files.length; i++) {
           console.log('... file[' + i + '].name = ' + e.dataTransfer.files[i].name);
           formData.append('image', e.dataTransfer.files[i]);
@@ -152,6 +164,7 @@ const Channel = () => {
       }
       axios.post(`/api/workspaces/${workspace}/channels/${channel}/images`, formData).then(() => {
         setDragOver(false);
+        localStorage.setItem(`${workspace}-${channel}`, new Date().getTime().toString());
       });
     },
     [workspace, channel],

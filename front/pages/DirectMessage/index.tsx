@@ -27,6 +27,15 @@ const DirectMessage = () => {
   } = useSWRInfinite<IDM[]>(
     (index) => `/api/workspaces/${workspace}/dms/${id}/chats?perPage=20&page=${index + 1}`,
     fetcher,
+    {
+      onSuccess(data) {
+        if (data?.length === 1) {
+          setTimeout(() => {
+            scrollbarRef.current?.scrollToBottom();
+          }, 100);
+        }
+      },
+    },
   );
   const [socket] = useSocket(workspace);
   // useSWRInfinite는 2차원배열을 지원해준다 1차원배열[{},{},{}] / 2차원배열 [[{}, {}], [{},{}]]
@@ -59,6 +68,7 @@ const DirectMessage = () => {
           return prevChatData;
         }, false) // shouldRevalidate가 false여야함
           .then(() => {
+            localStorage.setItem(`${workspace}-${id}`, new Date().getTime().toString());
             setChat(''); // 채팅 보내고 공백으로
             scrollbarRef.current?.scrollToBottom(); // 채팅 보냈을때 가장 밑으로
           });
@@ -114,6 +124,10 @@ const DirectMessage = () => {
     }
   }, [chatData]);
 
+  useEffect(() => {
+    localStorage.setItem(`${workspace}-${id}`, new Date().getTime().toString());
+  }, [workspace, id]);
+
   const onDrop = useCallback(
     (e) => {
       e.preventDefault();
@@ -135,10 +149,11 @@ const DirectMessage = () => {
       }
       axios.post(`/api/workspaces/${workspace}/dms/${id}/images`, formData).then(() => {
         setDragOver(false);
+        localStorage.setItem(`${workspace}-${id}`, new Date().getTime().toString());
         revalidate();
       });
     },
-    [revalidate, workspace, id],
+    [workspace, id],
   );
 
   const onDragOver = useCallback((e) => {

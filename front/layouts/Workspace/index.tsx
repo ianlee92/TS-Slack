@@ -4,8 +4,20 @@ import Menu from '@components/Menu';
 import Modal from '@components/Modal';
 import InviteWorkspaceModal from '@components/InviteWorkspaceModal';
 import InviteChannelModal from '@components/InviteChannelModal';
+import CreateChannelModal from '@components/CreateChannelModal';
 import useInput from '@hooks/useInput';
 import useSocket from '@hooks/useSocket';
+import loadable from '@loadable/component';
+import { Button, Input, Label } from '@pages/SignUp/styles';
+import { IChannel, IUser } from '@typings/db';
+import fetcher from '@utils/fetcher';
+import axios from 'axios';
+import React, { VFC, useCallback, useState, useEffect } from 'react';
+import { Redirect, useParams } from 'react-router';
+import { Link, Route, Switch } from 'react-router-dom';
+import useSWR from 'swr';
+import gravatar from 'gravatar';
+import { toast } from 'react-toastify';
 import {
   Header,
   RightMenu,
@@ -22,18 +34,6 @@ import {
   WorkspaceModal,
   AddButton,
 } from '@layouts/Workspace/styles';
-import loadable from '@loadable/component';
-import { Button, Input, Label } from '@pages/SignUp/styles';
-import { IChannel, IUser } from '@typings/db';
-import fetcher from '@utils/fetcher';
-import axios from 'axios';
-import React, { VFC, useCallback, useState, useEffect } from 'react';
-import { Redirect, useParams } from 'react-router';
-import { Link, Route, Switch } from 'react-router-dom';
-import useSWR from 'swr';
-import gravatar from 'gravatar';
-import { toast } from 'react-toastify';
-import CreateChannelModal from '@components/CreateChannelModal';
 
 const Channel = loadable(() => import('@pages/Channel'));
 const DirectMessage = loadable(() => import('@pages/DirectMessage'));
