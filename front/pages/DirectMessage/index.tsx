@@ -1,10 +1,10 @@
 import ChatBox from '@components/ChatBox';
 import ChatList from '@components/ChatList';
-import { Container, Header } from '@pages/Channel/styles';
+import { Container, Header, DragOver } from '@pages/Channel/styles';
 import { IDM } from '@typings/db';
 import fetcher from '@utils/fetcher';
 import makeSection from '@utils/makeSection';
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import gravatar from 'gravatar';
 import { useParams } from 'react-router';
 import useSWR, { useSWRInfinite } from 'swr';
@@ -37,6 +37,7 @@ const DirectMessage = () => {
   const isEmpty = chatData?.[0]?.length === 0;
   const isReachingEnd = isEmpty || (chatData && chatData[chatData.length - 1]?.length < 20) || false; // 기본값 false
   const scrollbarRef = useRef<Scrollbars>(null);
+  const [dragOver, setDragOver] = useState(false);
   //채팅 보내는 API
   const onSubmitForm = useCallback(
     (e) => {
@@ -107,9 +108,44 @@ const DirectMessage = () => {
   useEffect(() => {
     if (chatData?.length === 1) {
       // 채팅데이터가 있어서 불러온 경우
-      scrollbarRef.current?.scrollToBottom(); // 스크롤바 가장 밑으로
+      setTimeout(() => {
+        scrollbarRef.current?.scrollToBottom(); // 스크롤바 가장 밑으로
+      }, 100);
     }
   }, [chatData]);
+
+  const onDrop = useCallback(
+    (e) => {
+      e.preventDefault();
+      console.log(e);
+      const formData = new FormData();
+      if (e.dataTransfer.items) {
+        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+          if (e.dataTransfer.items[i].kind === 'file') {
+            const file = e.dataTransfer.items[i].getAsFile();
+            console.log('... file[' + i + '].name = ' + file.name);
+            formData.append('image', file);
+          }
+        }
+      } else {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          console.log('... file[' + i + '].name = ' + e.dataTransfer.files[i].name);
+          formData.append('image', e.dataTransfer.files[i]);
+        }
+      }
+      axios.post(`api/workspaces/${workspace}/dms/${id}/images`, formData).then(() => {
+        setDragOver(false);
+        revalidate();
+      });
+    },
+    [revalidate, workspace, id],
+  );
+
+  const onDragOver = useCallback((e) => {
+    e.preventDefault();
+    console.log(e);
+    setDragOver(true);
+  }, []);
 
   if (!userData || !myData) {
     return null;
@@ -118,12 +154,13 @@ const DirectMessage = () => {
   const chatSections = makeSection(chatData ? chatData.flat().reverse() : []); // 2차원배열을 1차열배열로 바꿔주고 reverse
 
   return (
-    <Container>
+    <Container onDrop={onDrop} onDragOver={onDragOver}>
       <Header>
         <img src={gravatar.url(userData.email, { s: '24px', d: 'retro' })} alt={userData.nickname} />
       </Header>
       <ChatList chatSections={chatSections} ref={scrollbarRef} setSize={setSize} isReachingEnd={isReachingEnd} />
       <ChatBox chat={chat} onChangeChat={onChangeChat} onSubmitForm={onSubmitForm} />
+      {dragOver && <DragOver>업로드!</DragOver>}
     </Container>
   );
 };
